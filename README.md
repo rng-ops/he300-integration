@@ -37,9 +37,10 @@ staging/
 ├── .github/                     # GitHub Actions workflows
 │   └── workflows/
 │       ├── ci.yml               # Main CI pipeline
+│       ├── he300-benchmark.yml  # HE-300 benchmark runner
 │       ├── regression.yml       # Regression test suite
 │       ├── release.yml          # Release automation
-│       ├── benchmark.yml        # HE-300 benchmark runner
+│       ├── benchmark.yml        # Generic benchmark runner
 │       └── submodule-sync.yml   # Submodule synchronization
 │
 ├── scripts/                     # CI/CD utility scripts
@@ -61,6 +62,9 @@ staging/
 ├── docs/                        # Documentation
 │   └── HE300_BENCHMARK.md       # HE-300 benchmark guide
 │
+├── QUICKSTART.md                # Architecture and usage overview
+├── RUN.md                       # Step-by-step benchmark guide
+│
 ├── tasks/                       # Task specifications
 │   └── task.md                  # Integration task document
 │
@@ -76,32 +80,42 @@ staging/
     └── .gitkeep
 ```
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[RUN.md](RUN.md)** | Step-by-step guide to run the HE-300 benchmark |
+| **[QUICKSTART.md](QUICKSTART.md)** | Architecture overview and component guide |
+| **[docs/HE300_BENCHMARK.md](docs/HE300_BENCHMARK.md)** | Detailed benchmark documentation |
+
 ## Quick Start
 
 ### Prerequisites
 
 - Docker & Docker Compose
 - Python 3.11+
-- Git with submodule support
-- Make
+- Git
 
-### Setup
+### Run the Benchmark
 
 ```bash
-# Clone and initialize submodules
-git clone --recursive https://github.com/rng-ops/he300-integration.git
-cd he300-integration/staging
+# Clone and setup
+git clone https://github.com/rng-ops/he300-integration.git
+cd he300-integration
+./scripts/setup-submodules.sh
 
-# Or if already cloned:
-make setup
+# Start services
+docker compose -f docker/docker-compose.he300.yml up -d
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings
+# Run benchmark (mock mode for testing)
+./scripts/run_he300_benchmark.sh --mock --sample-size 50
 
-# Start development stack
-make dev-up
+# Run benchmark (with Ollama)
+ollama pull llama3.2
+./scripts/run_he300_benchmark.sh --model ollama/llama3.2 --sample-size 300
 ```
+
+See **[RUN.md](RUN.md)** for complete instructions.
 
 ### Common Commands
 
@@ -115,7 +129,6 @@ make dev-logs        # View logs
 make test            # Run all tests
 make test-unit       # Unit tests only
 make test-e2e        # E2E tests only
-make test-regression # Regression suite
 
 # Benchmarks
 make benchmark       # Run HE-300 benchmark
