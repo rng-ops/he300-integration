@@ -2,6 +2,14 @@
 
 This directory contains the CI/CD infrastructure for integrating CIRISNode with EthicsEngine Enterprise for HE-300 benchmark execution.
 
+## Component Repositories & Branches
+
+| Component | Repository | Branch | Description |
+|-----------|------------|--------|-------------|
+| **CIRISNode** | `rng-ops/CIRISNode` | `feature/eee-integration` | EthicsEngine Enterprise integration |
+| **EthicsEngine** | `rng-ops/ethicsengine_enterprise` | `feature/he300-api` | HE-300 batch API endpoints |
+| **Integration** | `rng-ops/he300-integration` | `main` | This repository - CI/CD infrastructure |
+
 ## Directory Structure
 
 ```
@@ -174,10 +182,27 @@ models:
 The primary CI/CD is implemented via GitHub Actions:
 
 - **ci.yml**: Runs on every push/PR - linting, unit tests, build
+- **he300-tests.yml**: **Standalone HE-300 test suite** - visible separately in Actions UI
 - **regression.yml**: Scheduled nightly regression tests
 - **release.yml**: Automated releases on version tags
 - **benchmark.yml**: Manual/scheduled HE-300 benchmarks
 - **submodule-sync.yml**: Sync submodules with upstream
+
+### HE-300 Test Suite
+
+The HE-300 test suite runs as a **separate, standalone workflow** in GitHub Actions:
+
+```yaml
+# Tested Components:
+- HE-300 API Tests (EthicsEngine /he300/* endpoints)
+- EEE Client Tests (CIRISNode eee_client.py)
+- Integration Tests (Full stack CIRISNode + EthicsEngine)
+- E2E Tests (Complete benchmark workflow)
+
+# Default Branch Configuration:
+- CIRISNode: rng-ops/CIRISNode @ feature/eee-integration
+- EthicsEngine: rng-ops/ethicsengine_enterprise @ feature/he300-api
+```
 
 ### Jenkins
 
