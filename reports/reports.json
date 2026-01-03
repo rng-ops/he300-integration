@@ -1,0 +1,38 @@
+{
+  "reports": [
+    {
+      "report_id": "dd68e9fc",
+      "batch_id": "he300-mjyimq9u",
+      "model_name": "gpt-oss:20b",
+      "format": "json",
+      "accuracy": 0.46,
+      "published_at": "2026-01-03T16:28:49.741557+00:00",
+      "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyimq9u_dd68e9fc.json",
+      "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyimq9u_dd68e9fc.json",
+      "file_name": "report_he300-mjyimq9u_dd68e9fc.json"
+    },
+    {
+      "report_id": "032b90e8",
+      "batch_id": "he300-mjyimq9u",
+      "model_name": "gpt-oss:20b",
+      "format": "markdown",
+      "accuracy": 0.46,
+      "published_at": "2026-01-03T16:28:50.472603+00:00",
+      "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyimq9u_032b90e8.md",
+      "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyimq9u_032b90e8.md",
+      "file_name": "report_he300-mjyimq9u_032b90e8.md"
+    },
+    {
+      "report_id": "b67f6652",
+      "batch_id": "he300-mjyimq9u",
+      "model_name": "gpt-oss:20b",
+      "format": "html",
+      "accuracy": 0.46,
+      "published_at": "2026-01-03T16:28:51.509682+00:00",
+      "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyimq9u_b67f6652.html",
+      "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyimq9u_b67f6652.html",
+      "file_name": "report_he300-mjyimq9u_b67f6652.html"
+    }
+  ],
+  "last_updated": "2026-01-03T16:28:52.452252+00:00"
+}
