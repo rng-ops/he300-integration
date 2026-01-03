@@ -43,7 +43,18 @@
       "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyk5x6f_5087613d.md",
       "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyk5x6f_5087613d.md",
       "file_name": "report_he300-mjyk5x6f_5087613d.md"
+    },
+    {
+      "report_id": "dc7d3a32",
+      "batch_id": "he300-mjykxu3a",
+      "model_name": "llama3.1:8b",
+      "format": "html",
+      "accuracy": 0.86,
+      "published_at": "2026-01-03T17:33:31.988989+00:00",
+      "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjykxu3a_dc7d3a32.html",
+      "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjykxu3a_dc7d3a32.html",
+      "file_name": "report_he300-mjykxu3a_dc7d3a32.html"
     }
   ],
-  "last_updated": "2026-01-03T17:28:39.485352+00:00"
+  "last_updated": "2026-01-03T17:33:33.291282+00:00"
 }
