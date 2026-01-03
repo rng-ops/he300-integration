@@ -1,0 +1,296 @@
+# =============================================================================
+# CI Pipeline - GitHub Actions
+# =============================================================================
+#
+# Main CI pipeline that runs on every push and pull request.
+# Runs linting, unit tests, and builds Docker images.
+#
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - 'feature/**'
+      - 'release/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+      - staging
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  DOCKER_REGISTRY: ghcr.io
+  DOCKER_ORG: ${{ github.repository_owner }}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint & Format Check
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install linters
+        run: |
+          pip install ruff black isort mypy
+          
+      - name: Run ruff
+        run: |
+          ruff check submodules/cirisnode/cirisnode submodules/ethicsengine/api || true
+          
+      - name: Check formatting
+        run: |
+          black --check submodules/cirisnode/cirisnode submodules/ethicsengine/api || true
+
+  # ---------------------------------------------------------------------------
+  # Unit Tests - CIRISNode
+  # ---------------------------------------------------------------------------
+  test-cirisnode:
+    name: Test CIRISNode
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: cirisnode_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: submodules/cirisnode/requirements.txt
+          
+      - name: Install dependencies
+        run: |
+          cd submodules/cirisnode
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov
+          
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/cirisnode_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test-secret
+          EEE_ENABLED: false
+        run: |
+          cd submodules/cirisnode
+          pytest tests/ -v --cov=cirisnode --cov-report=xml
+          
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: submodules/cirisnode/coverage.xml
+          flags: cirisnode
+          fail_ci_if_error: false
+
+  # ---------------------------------------------------------------------------
+  # Unit Tests - EthicsEngine Enterprise
+  # ---------------------------------------------------------------------------
+  test-eee:
+    name: Test EthicsEngine Enterprise
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: submodules/ethicsengine/requirements.txt
+          
+      - name: Install dependencies
+        run: |
+          cd submodules/ethicsengine
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov
+          
+      - name: Run tests
+        env:
+          FF_MOCK_LLM: true
+          HE300_ENABLED: true
+        run: |
+          cd submodules/ethicsengine
+          pytest tests/ -v --cov=api --cov=core --cov-report=xml
+          
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: submodules/ethicsengine/coverage.xml
+          flags: ethicsengine
+          fail_ci_if_error: false
+
+  # ---------------------------------------------------------------------------
+  # Integration Tests
+  # ---------------------------------------------------------------------------
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test-cirisnode, test-eee]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Start services
+        run: |
+          docker compose -f docker/docker-compose.test.yml up -d
+          
+      - name: Wait for services
+        run: |
+          timeout 120 bash -c 'until curl -f http://localhost:18000/health && curl -f http://localhost:18080/health; do sleep 5; done'
+          
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-asyncio httpx
+          
+      - name: Run integration tests
+        env:
+          CIRISNODE_URL: http://localhost:18000
+          EEE_URL: http://localhost:18080
+        run: |
+          pytest tests/test_integration.py -v
+          
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker/docker-compose.test.yml logs
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker/docker-compose.test.yml down -v
+
+  # ---------------------------------------------------------------------------
+  # Build Docker Images
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build Images
+    runs-on: ubuntu-latest
+    needs: [test-cirisnode, test-eee]
+    if: github.event_name == 'push'
+    
+    strategy:
+      matrix:
+        image:
+          - name: cirisnode
+            context: submodules/cirisnode
+          - name: ethicsengine-enterprise
+            context: submodules/ethicsengine
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/${{ matrix.image.name }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.image.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VERSION=${{ github.sha }}
+            GIT_HASH=${{ github.sha }}
+
+  # ---------------------------------------------------------------------------
+  # Notify on Failure
+  # ---------------------------------------------------------------------------
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [lint, test-cirisnode, test-eee, test-integration, build]
+    if: failure()
+    
+    steps:
+      - name: Notify failure
+        run: |
+          echo "CI pipeline failed for ${{ github.ref }}"
+          # Add Slack/Discord notification here if needed
