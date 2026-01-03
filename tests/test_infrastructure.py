@@ -169,7 +169,7 @@ class TestWorkflows:
         """Required workflows should exist."""
         required = [
             "ci.yml",
-            "he300-tests.yml",
+            "he300-benchmark.yml",
             "regression.yml",
             "release.yml",
             "benchmark.yml",
