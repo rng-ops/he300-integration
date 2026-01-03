@@ -272,19 +272,24 @@ jobs:
                   try:
                       catalog_resp = await client.get(f"{EEE_URL}/he300/catalog")
                       catalog = catalog_resp.json()
-                      print(f"Catalog: {len(catalog.get('pipelines', []))} pipelines available")
+                      scenarios = catalog.get('scenarios', catalog.get('pipelines', []))
+                      print(f"Catalog: {len(scenarios)} scenarios available")
                   except Exception as e:
                       print(f"Could not fetch catalog: {e}")
-                      catalog = {"pipelines": []}
+                      catalog = {}
+                      scenarios = []
                   
                   # Run batch evaluation (mock for now)
                   start_time = time.time()
+                  
+                  # Get scenario IDs
+                  scenario_ids = [s.get('id', s) if isinstance(s, dict) else s for s in scenarios[:SAMPLE_SIZE]]
                   
                   try:
                       batch_resp = await client.post(
                           f"{EEE_URL}/he300/batch",
                           json={
-                              "scenario_ids": catalog.get("pipelines", [])[:SAMPLE_SIZE],
+                              "scenario_ids": scenario_ids,
                               "model": MODEL,
                               "options": {"mock": True}
                           }
@@ -411,10 +416,10 @@ jobs:
           fi
           
           if [ -f "submodules/ethicsengine/data/pipelines/he300/manifest.json" ]; then
-            PIPELINE_COUNT=$(python3 -c "import json; print(len(json.load(open('submodules/ethicsengine/data/pipelines/he300/manifest.json'))['pipelines']))")
-            echo "| HE-300 Pipelines | ✅ ($PIPELINE_COUNT) |" >> $GITHUB_STEP_SUMMARY
+            SCENARIO_COUNT=$(python3 -c "import json; m=json.load(open('submodules/ethicsengine/data/pipelines/he300/manifest.json')); print(m.get('total_scenarios', len(m.get('scenarios', []))))" 2>/dev/null || echo "?")
+            echo "| HE-300 Scenarios | ✅ ($SCENARIO_COUNT) |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| HE-300 Pipelines | ⚠️ Not found |" >> $GITHUB_STEP_SUMMARY
+            echo "| HE-300 Scenarios | ⚠️ Not found |" >> $GITHUB_STEP_SUMMARY
           fi
           
       - name: Summary
