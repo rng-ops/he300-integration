@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HE-300 Ethics Benchmark Reports</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .hero {
+            background: linear-gradient(135deg, var(--primary), #7c3aed, #ec4899);
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: -3rem 0 2rem 0;
+            position: relative;
+            z-index: 10;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .search-bar {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .search-bar input, .search-bar select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+        .search-bar input {
+            flex: 1;
+            min-width: 200px;
+        }
+        .search-bar input::placeholder {
+            color: var(--text-muted);
+        }
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+        .report-card {
+            background: var(--bg-card);
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .report-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+        .report-header {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, var(--primary), #7c3aed);
+        }
+        .report-header h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+        .report-header .model {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+        .report-body {
+            padding: 1.5rem;
+        }
+        .accuracy-display {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .accuracy-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        .accuracy-value.high { color: var(--success); }
+        .accuracy-value.medium { color: var(--warning); }
+        .accuracy-value.low { color: var(--danger); }
+        .accuracy-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .meta-tag {
+            background: rgba(255,255,255,0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .report-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: var(--text);
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.15);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        footer a {
+            color: var(--primary);
+        }
+        @media (max-width: 768px) {
+            .hero { padding: 3rem 1rem; }
+            .hero h1 { font-size: 1.75rem; }
+            .container { padding: 1rem; }
+            .reports-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>🔬 HE-300 Ethics Benchmark Reports</h1>
+        <p>Public benchmark results for AI ethics evaluation. All reports are cryptographically signed for integrity verification.</p>
+    </div>
+
+    <div class="container">
+        <div class="stats" id="statsContainer">
+            <!-- Filled by JS -->
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search reports by model, batch ID..." oninput="filterReports()">
+            <select id="sortSelect" onchange="sortReports()">
+                <option value="date-desc">Newest First</option>
+                <option value="date-asc">Oldest First</option>
+                <option value="accuracy-desc">Highest Accuracy</option>
+                <option value="accuracy-asc">Lowest Accuracy</option>
+                <option value="model">Model Name</option>
+            </select>
+        </div>
+
+        <div class="reports-grid" id="reportsGrid">
+            <!-- Filled by JS -->
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+            <h3>No reports found</h3>
+            <p>Try adjusting your search or filter criteria</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>Generated by <a href="https://github.com/rng-ops/he300-integration">EthicsEngine Enterprise</a> HE-300 Benchmark System</p>
+        <p>Last updated: <span id="lastUpdated"></span></p>
+    </footer>
+
+    <script>
+        const reports = [
+  {
+    "report_id": "dd68e9fc",
+    "batch_id": "he300-mjyimq9u",
+    "model_name": "gpt-oss:20b",
+    "format": "json",
+    "accuracy": 0.46,
+    "published_at": "2026-01-03T16:28:49.741557+00:00",
+    "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyimq9u_dd68e9fc.json",
+    "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyimq9u_dd68e9fc.json",
+    "file_name": "report_he300-mjyimq9u_dd68e9fc.json"
+  },
+  {
+    "report_id": "032b90e8",
+    "batch_id": "he300-mjyimq9u",
+    "model_name": "gpt-oss:20b",
+    "format": "markdown",
+    "accuracy": 0.46,
+    "published_at": "2026-01-03T16:28:50.472603+00:00",
+    "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyimq9u_032b90e8.md",
+    "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyimq9u_032b90e8.md",
+    "file_name": "report_he300-mjyimq9u_032b90e8.md"
+  },
+  {
+    "report_id": "b67f6652",
+    "batch_id": "he300-mjyimq9u",
+    "model_name": "gpt-oss:20b",
+    "format": "html",
+    "accuracy": 0.46,
+    "published_at": "2026-01-03T16:28:51.509682+00:00",
+    "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyimq9u_b67f6652.html",
+    "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyimq9u_b67f6652.html",
+    "file_name": "report_he300-mjyimq9u_b67f6652.html"
+  }
+];
+        let filteredReports = [...reports];
+
+        function init() {
+            renderStats();
+            renderReports();
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+        }
+
+        function renderStats() {
+            const total = reports.length;
+            const avgAccuracy = reports.length > 0 
+                ? reports.reduce((sum, r) => sum + r.accuracy, 0) / reports.length 
+                : 0;
+            const models = new Set(reports.map(r => r.model_name)).size;
+            const latest = reports.length > 0 
+                ? new Date(Math.max(...reports.map(r => new Date(r.published_at)))).toLocaleDateString()
+                : 'N/A';
+
+            document.getElementById('statsContainer').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${total}</div>
+                    <div class="stat-label">Total Reports</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${(avgAccuracy * 100).toFixed(1)}%</div>
+                    <div class="stat-label">Avg Accuracy</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${models}</div>
+                    <div class="stat-label">Models Tested</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${latest}</div>
+                    <div class="stat-label">Latest Report</div>
+                </div>
+            `;
+        }
+
+        function renderReports() {
+            const grid = document.getElementById('reportsGrid');
+            const empty = document.getElementById('emptyState');
+
+            if (filteredReports.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            grid.style.display = 'grid';
+            empty.style.display = 'none';
+
+            grid.innerHTML = filteredReports.map(r => {
+                const accPct = (r.accuracy * 100).toFixed(1);
+                const accClass = r.accuracy >= 0.8 ? 'high' : r.accuracy >= 0.5 ? 'medium' : 'low';
+                const date = new Date(r.published_at).toLocaleDateString();
+                
+                return `
+                    <div class="report-card">
+                        <div class="report-header">
+                            <h3>📊 ${r.batch_id}</h3>
+                            <div class="model">🤖 ${r.model_name}</div>
+                        </div>
+                        <div class="report-body">
+                            <div class="accuracy-display">
+                                <div class="accuracy-value ${accClass}">${accPct}%</div>
+                                <div class="accuracy-label">Overall Accuracy</div>
+                            </div>
+                            <div class="report-meta">
+                                <span class="meta-tag">📅 ${date}</span>
+                                <span class="meta-tag">📄 ${r.format.toUpperCase()}</span>
+                                <span class="meta-tag">🆔 ${r.report_id}</span>
+                            </div>
+                            <div class="report-actions">
+                                <a href="${r.pages_url}" class="btn btn-primary" target="_blank">View Report</a>
+                                <a href="${r.raw_url}" class="btn btn-secondary" download>Download</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterReports() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            filteredReports = reports.filter(r => 
+                r.model_name.toLowerCase().includes(search) ||
+                r.batch_id.toLowerCase().includes(search) ||
+                r.report_id.toLowerCase().includes(search)
+            );
+            renderReports();
+        }
+
+        function sortReports() {
+            const sort = document.getElementById('sortSelect').value;
+            switch(sort) {
+                case 'date-desc':
+                    filteredReports.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+                    break;
+                case 'date-asc':
+                    filteredReports.sort((a, b) => new Date(a.published_at) - new Date(b.published_at));
+                    break;
+                case 'accuracy-desc':
+                    filteredReports.sort((a, b) => b.accuracy - a.accuracy);
+                    break;
+                case 'accuracy-asc':
+                    filteredReports.sort((a, b) => a.accuracy - b.accuracy);
+                    break;
+                case 'model':
+                    filteredReports.sort((a, b) => a.model_name.localeCompare(b.model_name));
+                    break;
+            }
+            renderReports();
+        }
+
+        init();
+    </script>
+</body>
+</html>
