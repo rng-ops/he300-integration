@@ -1,0 +1,15 @@
+# Development Environment Variables
+# Copy to terraform.tfvars and fill in values
+
+aws_region   = "us-west-2"
+vpc_id       = ""  # Your VPC ID
+subnet_id    = ""  # Your subnet ID
+ssh_key_name = ""  # Your SSH key pair name
+
+admin_cidrs = [
+  # Add your IP for SSH access
+  # "203.0.113.0/32"
+]
+
+# Optional: Vault configuration
+vault_addr = ""

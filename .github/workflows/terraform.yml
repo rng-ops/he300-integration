@@ -1,0 +1,317 @@
+name: Terraform Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    branches:
+      - main
+      - staging
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: "1.7.0"
+  AWS_REGION: "us-east-1"
+
+jobs:
+  # Validate Terraform files
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+
+      - name: Terraform Init (Validation)
+        run: |
+          for env in dev staging prod; do
+            echo "Initializing $env..."
+            cd environments/$env
+            terraform init -backend=false
+            cd ../..
+          done
+        working-directory: terraform
+
+      - name: Terraform Validate
+        run: |
+          for env in dev staging prod; do
+            echo "Validating $env..."
+            cd environments/$env
+            terraform validate
+            cd ../..
+          done
+        working-directory: terraform
+
+  # Plan for PR or manual trigger
+  plan:
+    name: Plan (${{ github.event.inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Import Vault Secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: jwt
+          role: terraform-deploy
+          secrets: |
+            secret/data/he300/${{ github.event.inputs.environment || 'dev' }}/terraform aws_access_key_id | TF_VAR_aws_access_key_id ;
+            secret/data/he300/${{ github.event.inputs.environment || 'dev' }}/terraform aws_secret_access_key | TF_VAR_aws_secret_access_key ;
+            secret/data/he300/${{ github.event.inputs.environment || 'dev' }}/terraform lambda_labs_api_key | TF_VAR_lambda_labs_api_key
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -out=tfplan 2>&1 | tee plan.txt
+        working-directory: terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+        continue-on-error: true
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.environment || 'dev' }}
+          path: terraform/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
+
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/environments/${{ github.event.inputs.environment || 'dev' }}/plan.txt', 'utf8');
+            const truncated = plan.length > 60000 ? plan.substring(0, 60000) + '\n\n... (truncated)' : plan;
+            
+            const output = `### Terraform Plan (${{ github.event.inputs.environment || 'dev' }})
+            
+            <details>
+            <summary>Show Plan</summary>
+            
+            \`\`\`hcl
+            ${truncated}
+            \`\`\`
+            
+            </details>
+            
+            **Status:** ${{ steps.plan.outcome }}
+            **Actor:** @${{ github.actor }}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  # Apply on manual trigger only
+  apply:
+    name: Apply (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
+    environment: 
+      name: ${{ github.event.inputs.environment }}
+      url: ${{ steps.output.outputs.dashboard_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Import Vault Secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: jwt
+          role: terraform-deploy
+          secrets: |
+            secret/data/he300/${{ github.event.inputs.environment }}/terraform aws_access_key_id | TF_VAR_aws_access_key_id ;
+            secret/data/he300/${{ github.event.inputs.environment }}/terraform aws_secret_access_key | TF_VAR_aws_secret_access_key ;
+            secret/data/he300/${{ github.event.inputs.environment }}/terraform lambda_labs_api_key | TF_VAR_lambda_labs_api_key
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.environment }}
+          path: terraform/environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+
+      - name: Get Outputs
+        id: output
+        run: |
+          echo "dashboard_url=$(terraform output -raw dashboard_url 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          echo "gpu_instance_ip=$(terraform output -raw gpu_instance_public_ip 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+
+      - name: Summary
+        run: |
+          echo "## Deployment Complete 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Dashboard URL:** ${{ steps.output.outputs.dashboard_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**GPU Instance IP:** ${{ steps.output.outputs.gpu_instance_ip }}" >> $GITHUB_STEP_SUMMARY
+
+  # Destroy (manual only, requires confirmation)
+  destroy:
+    name: Destroy (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    environment: ${{ github.event.inputs.environment }}-destroy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Import Vault Secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: jwt
+          role: terraform-deploy
+          secrets: |
+            secret/data/he300/${{ github.event.inputs.environment }}/terraform aws_access_key_id | TF_VAR_aws_access_key_id ;
+            secret/data/he300/${{ github.event.inputs.environment }}/terraform aws_secret_access_key | TF_VAR_aws_secret_access_key
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+
+      - name: Summary
+        run: |
+          echo "## Infrastructure Destroyed ⚠️" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Actor:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+
+  # Build Packer AMI
+  packer-build:
+    name: Build AMI
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
+    needs: apply
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: "1.10.0"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Packer Init
+        run: packer init he300-gpu.pkr.hcl
+        working-directory: terraform/packer
+
+      - name: Packer Build
+        run: |
+          packer build \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "environment=${{ github.event.inputs.environment }}" \
+            he300-gpu.pkr.hcl
+        working-directory: terraform/packer
+
+      - name: Summary
+        run: |
+          echo "## AMI Build Complete 📦" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
