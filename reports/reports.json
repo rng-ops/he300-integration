@@ -32,7 +32,18 @@
       "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyimq9u_b67f6652.html",
       "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyimq9u_b67f6652.html",
       "file_name": "report_he300-mjyimq9u_b67f6652.html"
+    },
+    {
+      "report_id": "5087613d",
+      "batch_id": "he300-mjyk5x6f",
+      "model_name": "gpt-oss",
+      "format": "markdown",
+      "accuracy": 0.4,
+      "published_at": "2026-01-03T17:14:44.641043+00:00",
+      "pages_url": "https://rng-ops.github.io/he300-integration/reports/report_he300-mjyk5x6f_5087613d.md",
+      "raw_url": "https://raw.githubusercontent.com/rng-ops/he300-integration/gh-pages/reports/report_he300-mjyk5x6f_5087613d.md",
+      "file_name": "report_he300-mjyk5x6f_5087613d.md"
     }
   ],
-  "last_updated": "2026-01-03T16:28:52.452252+00:00"
+  "last_updated": "2026-01-03T17:14:45.727966+00:00"
 }
