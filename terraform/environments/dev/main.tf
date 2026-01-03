@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.5.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -14,7 +14,7 @@ terraform {
       version = "~> 3.0"
     }
   }
-  
+
   # Backend configuration - uncomment and configure for remote state
   # backend "s3" {
   #   bucket         = "he300-terraform-state"
@@ -27,7 +27,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Environment = "dev"
@@ -79,25 +79,25 @@ variable "vault_addr" {
 # GPU Instance
 module "gpu_instance" {
   source = "../../modules/gpu-instance"
-  
+
   environment = "dev"
-  
+
   cloud_provider        = "aws"
   gpu_type              = "a10"
   use_deep_learning_ami = true
   root_volume_size      = 200
-  
+
   vpc_id       = var.vpc_id
   subnet_id    = var.subnet_id
   ssh_key_name = var.ssh_key_name
-  
+
   admin_cidrs   = var.admin_cidrs
-  allowed_cidrs = ["0.0.0.0/0"]  # Dev environment - open access
-  
+  allowed_cidrs = ["0.0.0.0/0"] # Dev environment - open access
+
   assign_elastic_ip = true
   enable_dashboard  = true
-  enable_monitoring = false  # Disable CloudWatch in dev
-  
+  enable_monitoring = false # Disable CloudWatch in dev
+
   vault_addr    = var.vault_addr
   default_model = "llama3.2:3b-instruct-q4_K_M"
   quantization  = "Q4_K_M"
@@ -106,13 +106,13 @@ module "gpu_instance" {
 # WireGuard VPN (optional for dev)
 module "wireguard" {
   source = "../../modules/wireguard"
-  
-  generate_keys     = true
-  output_dir        = "${path.module}/wireguard-configs"
-  
-  gpu_host_address     = "10.0.0.2/24"
-  test_runner_address  = "10.0.0.1/24"
-  
+
+  generate_keys = true
+  output_dir    = "${path.module}/wireguard-configs"
+
+  gpu_host_address    = "10.0.0.2/24"
+  test_runner_address = "10.0.0.1/24"
+
   # Don't auto-deploy in dev
   deploy_to_gpu_host = false
 }
@@ -120,9 +120,9 @@ module "wireguard" {
 # Results Dashboard infrastructure
 module "dashboard" {
   source = "../../modules/results-dashboard"
-  
+
   environment = "dev"
-  
+
   # S3 only in dev (no RDS, ECS, CloudFront)
   artifact_retention_days = 30
   deploy_rds              = false

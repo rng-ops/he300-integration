@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.5.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -22,20 +22,20 @@ terraform {
 
 locals {
   instance_name = "he300-gpu-${var.environment}"
-  
+
   common_tags = {
     Environment = var.environment
     Project     = "he300-benchmark"
     ManagedBy   = "terraform"
     Component   = "gpu-instance"
   }
-  
+
   # GPU instance type mapping
   aws_gpu_types = {
-    "a10"     = "g5.xlarge"      # NVIDIA A10G 24GB
-    "a10-2x"  = "g5.2xlarge"     # NVIDIA A10G 24GB, more CPU/RAM
-    "a100"    = "p4d.24xlarge"   # NVIDIA A100 40GB x8
-    "t4"      = "g4dn.xlarge"    # NVIDIA T4 16GB
+    "a10"    = "g5.xlarge"    # NVIDIA A10G 24GB
+    "a10-2x" = "g5.2xlarge"   # NVIDIA A10G 24GB, more CPU/RAM
+    "a100"   = "p4d.24xlarge" # NVIDIA A100 40GB x8
+    "t4"     = "g4dn.xlarge"  # NVIDIA T4 16GB
   }
 }
 
@@ -79,13 +79,13 @@ resource "aws_instance" "gpu" {
 
   ami           = var.use_deep_learning_ami ? data.aws_ami.deep_learning[0].id : data.aws_ami.ubuntu[0].id
   instance_type = lookup(local.aws_gpu_types, var.gpu_type, "g5.xlarge")
-  
+
   key_name               = var.ssh_key_name
   vpc_security_group_ids = [aws_security_group.gpu[0].id]
   subnet_id              = var.subnet_id
-  
+
   iam_instance_profile = var.iam_instance_profile
-  
+
   user_data = base64encode(templatefile("${path.module}/templates/userdata.sh.tpl", {
     environment        = var.environment
     vault_addr         = var.vault_addr
@@ -123,10 +123,10 @@ resource "aws_instance" "gpu" {
 # Elastic IP for stable addressing
 resource "aws_eip" "gpu" {
   count = var.cloud_provider == "aws" && var.assign_elastic_ip ? 1 : 0
-  
+
   instance = aws_instance.gpu[0].id
   domain   = "vpc"
-  
+
   tags = merge(local.common_tags, {
     Name = "${local.instance_name}-eip"
   })

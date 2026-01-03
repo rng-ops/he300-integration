@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.5.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -14,7 +14,7 @@ terraform {
       version = "~> 3.0"
     }
   }
-  
+
   backend "s3" {
     bucket         = "he300-terraform-state"
     key            = "prod/terraform.tfstate"
@@ -26,7 +26,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Environment = "prod"
@@ -97,29 +97,29 @@ variable "dashboard_domain" {
 # GPU Instance
 module "gpu_instance" {
   source = "../../modules/gpu-instance"
-  
+
   environment = "prod"
-  
+
   cloud_provider        = "aws"
   gpu_type              = "a10"
   use_deep_learning_ami = true
-  root_volume_size      = 500  # Larger volume for prod
-  
+  root_volume_size      = 500 # Larger volume for prod
+
   vpc_id       = var.vpc_id
   subnet_id    = var.subnet_id
   ssh_key_name = var.ssh_key_name
-  
+
   admin_cidrs   = var.admin_cidrs
   allowed_cidrs = var.allowed_cidrs
-  
+
   assign_elastic_ip   = true
   enable_dashboard    = true
   enable_monitoring   = true
   alarm_sns_topic_arn = var.alarm_sns_topic_arn
-  
+
   vault_addr    = var.vault_addr
   vault_role_id = var.vault_role_id
-  
+
   # Production model configuration
   default_model = "llama3.2:8b-instruct-q4_K_M"
   quantization  = "Q4_K_M"
@@ -128,37 +128,37 @@ module "gpu_instance" {
 # WireGuard VPN
 module "wireguard" {
   source = "../../modules/wireguard"
-  
-  generate_keys     = true
-  output_dir        = "${path.module}/wireguard-configs"
-  
-  gpu_host_address     = "10.0.0.2/24"
-  gpu_host_endpoint    = "${module.gpu_instance.instance_public_ip}:51820"
-  test_runner_address  = "10.0.0.1/24"
-  
-  deploy_to_gpu_host   = true
-  gpu_host_ssh_host    = module.gpu_instance.instance_public_ip
-  gpu_host_ssh_user    = "ubuntu"
+
+  generate_keys = true
+  output_dir    = "${path.module}/wireguard-configs"
+
+  gpu_host_address    = "10.0.0.2/24"
+  gpu_host_endpoint   = "${module.gpu_instance.instance_public_ip}:51820"
+  test_runner_address = "10.0.0.1/24"
+
+  deploy_to_gpu_host = true
+  gpu_host_ssh_host  = module.gpu_instance.instance_public_ip
+  gpu_host_ssh_user  = "ubuntu"
 }
 
 # Results Dashboard
 module "dashboard" {
   source = "../../modules/results-dashboard"
-  
+
   environment = "prod"
   vpc_id      = var.vpc_id
-  
-  artifact_retention_days      = 365  # 1 year retention in prod
+
+  artifact_retention_days      = 365 # 1 year retention in prod
   private_subnet_ids           = var.private_subnet_ids
   dashboard_security_group_ids = [module.gpu_instance.security_group_id]
-  
+
   # Full infrastructure in prod
   deploy_rds         = true
   rds_instance_class = "db.t3.medium"
   rds_password       = var.rds_password
-  
+
   deploy_ecs = true
-  
+
   deploy_cloudfront       = var.dashboard_domain != ""
   dashboard_origin_domain = module.gpu_instance.instance_public_ip
 }
