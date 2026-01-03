@@ -1,174 +1,144 @@
 # HE-300 Development Environment
-# Terraform configuration for dev environment
+# Deploys via Docker Compose to local or remote host
 
 terraform {
   required_version = ">= 1.5.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    vault = {
-      source  = "hashicorp/vault"
-      version = "~> 3.0"
-    }
-  }
-
-  # Backend configuration - uncomment and configure for remote state
-  # backend "s3" {
-  #   bucket         = "he300-terraform-state"
-  #   key            = "dev/terraform.tfstate"
-  #   region         = "us-west-2"
-  #   encrypt        = true
-  #   dynamodb_table = "he300-terraform-locks"
-  # }
 }
 
-provider "aws" {
-  region = var.aws_region
+# Docker Compose deployment
+module "he300" {
+  source = "../../modules/docker-compose"
 
-  default_tags {
-    tags = {
-      Environment = "dev"
-      Project     = "he300-benchmark"
-      ManagedBy   = "terraform"
-    }
-  }
+  environment = "dev"
+  deploy_path = var.deploy_path
+  target_host = var.target_host
+  auto_deploy = var.auto_deploy
+
+  # Ports
+  cirisnode_port = 8000
+  eee_port       = 8080
+  dashboard_port = 3000
+
+  # Features
+  enable_gpu       = var.enable_gpu
+  enable_dashboard = true
+
+  # Model settings
+  default_model      = var.default_model
+  model_quantization = var.model_quantization
+  model_cache_dir    = "${var.data_dir}/models"
+
+  # GPU
+  cuda_visible_devices = var.cuda_visible_devices
+
+  # Paths
+  data_dir  = var.data_dir
+  log_dir   = var.log_dir
+  log_level = "DEBUG"
+
+  # Secrets (leave empty to auto-generate)
+  db_password    = var.db_password
+  redis_password = var.redis_password
+  jwt_secret     = var.jwt_secret
+  webhook_secret = var.webhook_secret
 }
-
-# Optional: Vault provider for secrets
-# provider "vault" {
-#   address = var.vault_addr
-# }
 
 # Variables
-variable "aws_region" {
-  description = "AWS region"
+variable "deploy_path" {
+  description = "Path to HE-300 installation"
   type        = string
-  default     = "us-west-2"
+  default     = "/opt/he300"
 }
 
-variable "vpc_id" {
-  description = "VPC ID"
+variable "target_host" {
+  description = "Target host (localhost or IP)"
   type        = string
+  default     = "localhost"
 }
 
-variable "subnet_id" {
-  description = "Subnet ID for GPU instance"
+variable "auto_deploy" {
+  description = "Auto-deploy after config generation"
+  type        = bool
+  default     = false
+}
+
+variable "enable_gpu" {
+  description = "Enable GPU support"
+  type        = bool
+  default     = true
+}
+
+variable "default_model" {
+  description = "Default model for inference"
   type        = string
+  default     = "Qwen/Qwen2.5-7B-Instruct"
 }
 
-variable "ssh_key_name" {
-  description = "SSH key pair name"
+variable "model_quantization" {
+  description = "Model quantization level"
   type        = string
+  default     = "Q4_K_M"
 }
 
-variable "admin_cidrs" {
-  description = "CIDR blocks for admin SSH access"
-  type        = list(string)
-  default     = []
-}
-
-variable "vault_addr" {
-  description = "Vault server address"
+variable "cuda_visible_devices" {
+  description = "CUDA devices to use"
   type        = string
-  default     = ""
+  default     = "0"
 }
 
-# GPU Instance
-module "gpu_instance" {
-  source = "../../modules/gpu-instance"
-
-  environment = "dev"
-
-  cloud_provider        = "aws"
-  gpu_type              = "a10"
-  use_deep_learning_ami = true
-  root_volume_size      = 200
-
-  vpc_id       = var.vpc_id
-  subnet_id    = var.subnet_id
-  ssh_key_name = var.ssh_key_name
-
-  admin_cidrs   = var.admin_cidrs
-  allowed_cidrs = ["0.0.0.0/0"] # Dev environment - open access
-
-  assign_elastic_ip = true
-  enable_dashboard  = true
-  enable_monitoring = false # Disable CloudWatch in dev
-
-  vault_addr    = var.vault_addr
-  default_model = "llama3.2:3b-instruct-q4_K_M"
-  quantization  = "Q4_K_M"
+variable "data_dir" {
+  description = "Data directory"
+  type        = string
+  default     = "/var/lib/he300"
 }
 
-# WireGuard VPN (optional for dev)
-module "wireguard" {
-  source = "../../modules/wireguard"
-
-  generate_keys = true
-  output_dir    = "${path.module}/wireguard-configs"
-
-  gpu_host_address    = "10.0.0.2/24"
-  test_runner_address = "10.0.0.1/24"
-
-  # Don't auto-deploy in dev
-  deploy_to_gpu_host = false
+variable "log_dir" {
+  description = "Log directory"
+  type        = string
+  default     = "/var/log/he300"
 }
 
-# Results Dashboard infrastructure
-module "dashboard" {
-  source = "../../modules/results-dashboard"
+variable "db_password" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
 
-  environment = "dev"
+variable "redis_password" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
 
-  # S3 only in dev (no RDS, ECS, CloudFront)
-  artifact_retention_days = 30
-  deploy_rds              = false
-  deploy_ecs              = false
-  deploy_cloudfront       = false
+variable "jwt_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "webhook_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 # Outputs
-output "gpu_instance_ip" {
-  description = "GPU instance public IP"
-  value       = module.gpu_instance.instance_public_ip
-}
-
 output "cirisnode_url" {
-  description = "CIRISNode API URL"
-  value       = module.gpu_instance.cirisnode_url
+  value = module.he300.cirisnode_url
 }
 
-output "ethicsengine_url" {
-  description = "EthicsEngine API URL"
-  value       = module.gpu_instance.ethicsengine_url
+output "eee_url" {
+  value = module.he300.eee_url
 }
 
 output "dashboard_url" {
-  description = "Dashboard URL"
-  value       = module.gpu_instance.dashboard_url
+  value = module.he300.dashboard_url
 }
 
-output "ssh_command" {
-  description = "SSH connection command"
-  value       = module.gpu_instance.ssh_connection
+output "deploy_command" {
+  value = module.he300.deploy_command
 }
 
-output "wireguard_gpu_host_key" {
-  description = "WireGuard GPU host public key"
-  value       = module.wireguard.gpu_host_public_key
-  sensitive   = true
-}
-
-output "wireguard_test_runner_key" {
-  description = "WireGuard test runner public key"
-  value       = module.wireguard.test_runner_public_key
-  sensitive   = true
-}
-
-output "artifacts_bucket" {
-  description = "S3 bucket for artifacts"
-  value       = module.dashboard.artifacts_bucket_name
+output "env_file" {
+  value = module.he300.env_file_path
 }
