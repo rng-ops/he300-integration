@@ -8,11 +8,27 @@
 # - Better error handling
 # - Documents what's happening at each step
 #
+# Usage:
+#   ./deploy-remote-v2.sh           # Interactive mode (prompts for confirmation)
+#   ./deploy-remote-v2.sh -y        # Non-interactive mode (auto-confirm)
+#   ./deploy-remote-v2.sh --yes     # Non-interactive mode (auto-confirm)
+#
 # HITL Reference: See docs/hitl.md for ethical considerations
 # Security Reference: See docs/sec.md for security analysis
 #
 
 set -euo pipefail
+
+# Parse command line arguments
+NON_INTERACTIVE=false
+for arg in "$@"; do
+    case $arg in
+        -y|--yes)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+    esac
+done
 
 # Configuration
 HOST="ubuntu@163.192.58.165"
@@ -75,7 +91,13 @@ echo ""
 echo "📋 HITL: All actions are logged to docs/hitl.md"
 echo "🔒 Security: See docs/sec.md for security analysis"
 echo ""
-read -p "Press Enter to continue or Ctrl+C to abort..."
+
+if [ "$NON_INTERACTIVE" = false ]; then
+    read -p "Press Enter to continue or Ctrl+C to abort..."
+else
+    echo "Running in non-interactive mode (-y flag provided)..."
+    sleep 2
+fi
 
 # Step 1: Verify Docker
 log_step 1 "Verifying Docker installation..."
@@ -282,8 +304,17 @@ services:
     ports:
       - \"\${UI_PORT:-3000}:3000\"
     environment:
-      - NEXT_PUBLIC_ETHICSENGINE_API=http://localhost:\${EEE_PORT:-8080}
-      - NEXT_PUBLIC_CIRISNODE_API=http://localhost:\${CIRISNODE_PORT:-8000}
+      - NEXTAUTH_SECRET=\${JWT_SECRET}
+      - NEXTAUTH_URL=http://localhost:3000
+    networks:
+      - he300-net
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: he300-ollama
+    volumes:
+      - ollama_data:/root/.ollama
     networks:
       - he300-net
     restart: unless-stopped
@@ -328,6 +359,8 @@ volumes:
     name: he300-redis-data
   model_cache:
     name: he300-model-cache
+  ollama_data:
+    name: he300-ollama-data
 
 networks:
   he300-net:
